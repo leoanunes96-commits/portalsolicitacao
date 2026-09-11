@@ -1,20 +1,27 @@
 "use client"
 
 import Link from "next/link"
-import { FileText, FileCheck, ScrollText, GraduationCap } from "lucide-react"
+import { FileText, FileCheck, ScrollText, GraduationCap, SplitSquareVertical } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 const services = [
   {
     title: "Ajuste de Matrícula",
-    description: "Solicite abertura de vaga ou abertura de escopo para disciplinas",
+    description: "Solicite abertura de vaga em disciplina lotada",
     icon: FileText,
     href: "/ajuste-matricula",
     available: true,
   },
   {
+    title: "Quebra de Pré-Requisito",
+    description: "Solicite a quebra de pré-requisito de uma disciplina",
+    icon: SplitSquareVertical,
+    href: "/quebra-pre-requisito",
+    available: true,
+  },
+  {
     title: "Envio de Atestado",
-    description: "Envie atestados médicos e documentos comprobatórios",
+    description: "Envie atestados médicos e pedidos de segunda chamada",
     icon: FileCheck,
     href: "/envio-atestado",
     available: true,
@@ -24,7 +31,7 @@ const services = [
     description: "Solicite declarações acadêmicas e comprovantes",
     icon: ScrollText,
     href: "/emissao-declaracao",
-    available: true,
+    available: false,
   },
 ]
 
@@ -39,8 +46,8 @@ export default function HomePage() {
               <GraduationCap className="h-7 w-7 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-foreground">Fonoaudiologia</h1>
-              <p className="text-sm text-muted-foreground">Universidade Federal do Espírito Santo</p>
+              <h1 className="text-xl font-semibold text-foreground">Colegiado de Curso</h1>
+              <p className="text-sm text-muted-foreground">Instituição Pública Federal de Ensino Superior</p>
             </div>
           </div>
         </div>
@@ -60,11 +67,11 @@ export default function HomePage() {
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((service) => {
             const Icon = service.icon
-            
+
             if (!service.available) {
               return (
-                <Card 
-                  key={service.title} 
+                <Card
+                  key={service.title}
                   className="relative overflow-hidden opacity-60 cursor-not-allowed"
                 >
                   <div className="absolute right-3 top-3 rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
@@ -116,7 +123,7 @@ export default function HomePage() {
       <footer className="mt-auto border-t border-border bg-card">
         <div className="mx-auto max-w-5xl px-4 py-6">
           <p className="text-center text-sm text-muted-foreground">
-            Centro de Ciências da Saúde - Fonoaudiologia (281)
+            Colegiado de Curso de Graduação
           </p>
         </div>
       </footer>

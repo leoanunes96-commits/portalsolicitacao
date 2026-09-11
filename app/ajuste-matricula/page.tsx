@@ -16,8 +16,8 @@ export default function AjusteMatriculaPage() {
               <GraduationCap className="h-7 w-7 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-foreground">Fonoaudiologia</h1>
-              <p className="text-sm text-muted-foreground">Universidade Federal do Espírito Santo</p>
+              <h1 className="text-xl font-semibold text-foreground">Colegiado de Curso</h1>
+              <p className="text-sm text-muted-foreground">Instituição Pública Federal de Ensino Superior</p>
             </div>
           </div>
         </div>
@@ -37,7 +37,7 @@ export default function AjusteMatriculaPage() {
             Ajuste de Matrícula
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Preencha o formulário abaixo para solicitar abertura de vaga ou abertura de escopo.
+            Preencha o formulário abaixo para solicitar abertura de vaga em disciplina lotada (ou, se for o caso, abertura de escopo).
           </p>
         </div>
 
@@ -48,7 +48,7 @@ export default function AjusteMatriculaPage() {
       <footer className="mt-auto border-t border-border bg-card">
         <div className="mx-auto max-w-3xl px-4 py-6">
           <p className="text-center text-sm text-muted-foreground">
-            Centro de Ciências da Saúde - Fonoaudiologia (281)
+            Colegiado de Curso de Graduação
           </p>
         </div>
       </footer>

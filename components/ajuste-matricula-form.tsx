@@ -66,7 +66,7 @@ export function AjusteMatriculaForm() {
       setIsSuccess(true)
       toast.success("Solicitação enviada com sucesso!")
     } catch (error) {
-      console.error("[v0] Error submitting form:", error)
+      console.error("Error submitting form:", error)
       toast.error(error instanceof Error ? error.message : "Erro ao enviar solicitação")
     } finally {
       setIsSubmitting(false)

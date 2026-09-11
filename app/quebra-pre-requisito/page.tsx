@@ -5,9 +5,9 @@ import { ArrowLeft } from "lucide-react"
 import { Toaster } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { EnvioAtestadoForm } from "@/components/envio-atestado-form"
+import { QuebraPreRequisitoForm } from "@/components/quebra-pre-requisito-form"
 
-export default function EnvioAtestadoPage() {
+export default function QuebraPreRequisitoPage() {
   return (
     <main className="min-h-screen bg-background">
       {/* Header */}
@@ -26,14 +26,15 @@ export default function EnvioAtestadoPage() {
       <div className="mx-auto max-w-3xl px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Atestado Médico / Segunda Chamada
+            Quebra de Pré-Requisito
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Envie seu atestado médico para os docentes responsáveis pelas disciplinas em que houve falta e, se for o caso, solicite segunda chamada de avaliação.
+            Solicite a quebra de pré-requisito de uma disciplina, informando a justificativa e
+            anexando o formulário de solicitação assinado (e, se tiver, o histórico parcial).
           </p>
         </div>
 
-        <EnvioAtestadoForm />
+        <QuebraPreRequisitoForm />
       </div>
 
       <Toaster position="top-center" richColors />

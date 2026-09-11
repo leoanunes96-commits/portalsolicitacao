@@ -11,6 +11,8 @@ export async function POST(request: Request) {
     const docentesSelecionadosJson = formData.get("docentesSelecionados") as string
     const atestadoFile = formData.get("atestado") as File
     const comprovanteFile = formData.get("comprovante") as File
+    const solicitarSegundaChamada = formData.get("solicitarSegundaChamada") === "true"
+    const descricaoAtividadePerdida = (formData.get("descricaoAtividadePerdida") as string) || ""
 
     // Validate required fields
     if (!nome || !email || !docentesSelecionadosJson || !atestadoFile || !comprovanteFile) {
@@ -59,7 +61,7 @@ export async function POST(request: Request) {
 
     // Check if RESEND_API_KEY is set
     if (!process.env.RESEND_API_KEY) {
-      console.log("[v0] RESEND_API_KEY not set - returning success without sending email")
+      console.log("RESEND_API_KEY not set - returning success without sending email")
       return NextResponse.json({
         success: true,
         message: "Formulário processado. Configure a chave da API Resend para enviar e-mails.",
@@ -71,23 +73,32 @@ export async function POST(request: Request) {
     const resend = new Resend(process.env.RESEND_API_KEY)
 
     // Create email HTML content
+    const segundaChamadaHtml = solicitarSegundaChamada
+      ? `
+      <hr/>
+      <p><strong>Pedido de segunda chamada de avaliação:</strong> Sim</p>
+      <p><strong>Atividade perdida:</strong> ${descricaoAtividadePerdida || "não informado"}</p>
+      `
+      : ""
+
     const htmlContent = `
-      <h2>Envio de Atestado Médico</h2>
+      <h2>Envio de Atestado Médico${solicitarSegundaChamada ? " / Pedido de Segunda Chamada" : ""}</h2>
       <p><strong>Aluno(a):</strong> ${nome}</p>
       <p><strong>E-mail:</strong> ${email}</p>
       <hr/>
       <p>Segue em anexo o atestado médico e o comprovante de matrícula do(a) aluno(a).</p>
-      <p>Este e-mail foi enviado através do Portal de Solicitações do Curso de Fonoaudiologia - UFES.</p>
+      ${segundaChamadaHtml}
+      <p>Este e-mail foi enviado através do Portal de Solicitações do Colegiado de Curso.</p>
     `
 
     // Send email to each selected docente
     const emailPromises = docentesParaEnviar.map((docente) =>
       resend.emails.send({
-        from: "Solicitações Fonoaudiologia <onboarding@resend.dev>",
+        from: "Solicitações do Colegiado <onboarding@resend.dev>",
         to: [docente.email],
         cc: [email], // Student receives a copy
         replyTo: email,
-        subject: `Atestado Médico | ${nome}`,
+        subject: `${solicitarSegundaChamada ? "Atestado Médico / Segunda Chamada" : "Atestado Médico"} | ${nome}`,
         html: `
           <p><strong>Para:</strong> ${docente.nome}</p>
           ${htmlContent}
@@ -114,7 +125,7 @@ export async function POST(request: Request) {
       docentesNotificados: docentesParaEnviar.map((d) => d.nome),
     })
   } catch (error) {
-    console.error("[v0] Error processing request:", error)
+    console.error("Error processing request:", error)
     return NextResponse.json(
       { error: "Erro ao processar solicitação. Por favor, tente novamente." },
       { status: 500 }

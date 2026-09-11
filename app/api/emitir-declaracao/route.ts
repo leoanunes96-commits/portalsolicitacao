@@ -223,7 +223,7 @@ export async function POST(request: Request) {
 
     // Check if RESEND_API_KEY is set
     if (!process.env.RESEND_API_KEY) {
-      console.log("[v0] RESEND_API_KEY not set - returning PDF without sending email")
+      console.log("RESEND_API_KEY not set - returning PDF without sending email")
       return NextResponse.json({
         success: true,
         message: "Declaração gerada com sucesso. Configure a chave da API Resend para enviar por e-mail.",
@@ -287,7 +287,7 @@ export async function POST(request: Request) {
       emailSent: true,
     })
   } catch (error) {
-    console.error("[v0] Error processing declaration request:", error)
+    console.error("Error processing declaration request:", error)
     return NextResponse.json(
       { error: "Erro ao processar solicitação. Tente novamente." },
       { status: 500 }

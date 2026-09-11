@@ -21,6 +21,8 @@ const formSchema = z.object({
   nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
   email: z.string().email("E-mail inválido"),
   docentesSelecionados: z.array(z.string()).min(1, "Selecione pelo menos um docente"),
+  solicitarSegundaChamada: z.boolean().optional(),
+  descricaoAtividadePerdida: z.string().optional(),
 })
 
 type FormData = z.infer<typeof formSchema>
@@ -46,6 +48,7 @@ export function EnvioAtestadoForm() {
   })
 
   const docentesSelecionados = watch("docentesSelecionados")
+  const solicitarSegundaChamada = watch("solicitarSegundaChamada")
 
   const handleFileChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -118,6 +121,8 @@ export function EnvioAtestadoForm() {
       formData.append("nome", data.nome)
       formData.append("email", data.email)
       formData.append("docentesSelecionados", JSON.stringify(data.docentesSelecionados))
+      formData.append("solicitarSegundaChamada", data.solicitarSegundaChamada ? "true" : "false")
+      formData.append("descricaoAtividadePerdida", data.descricaoAtividadePerdida || "")
       formData.append("atestado", atestadoFile)
       formData.append("comprovante", comprovanteFile)
 
@@ -314,6 +319,46 @@ export function EnvioAtestadoForm() {
               )}
             </Field>
           </FieldGroup>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Segunda Chamada (opcional)</CardTitle>
+          <CardDescription>
+            Informe se, durante o período de afastamento, você perdeu alguma atividade avaliativa
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start space-x-3 rounded-lg border border-border p-4">
+            <Checkbox
+              id="solicitarSegundaChamada"
+              checked={solicitarSegundaChamada}
+              onCheckedChange={(checked) => setValue("solicitarSegundaChamada", checked as boolean)}
+              className="mt-0.5"
+            />
+            <div className="flex-1">
+              <Label htmlFor="solicitarSegundaChamada" className="cursor-pointer font-medium">
+                Perdi atividade avaliativa e desejo solicitar segunda chamada
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Ao marcar esta opção, sua solicitação também será tratada como pedido de segunda chamada de avaliação
+              </p>
+            </div>
+          </div>
+
+          {solicitarSegundaChamada && (
+            <Field className="mt-4">
+              <FieldLabel htmlFor="descricaoAtividadePerdida">
+                Qual atividade avaliativa e em qual disciplina?
+              </FieldLabel>
+              <Input
+                id="descricaoAtividadePerdida"
+                placeholder="Ex: Prova de Cálculo I, realizada em 10/09"
+                {...register("descricaoAtividadePerdida")}
+              />
+            </Field>
+          )}
         </CardContent>
       </Card>
 

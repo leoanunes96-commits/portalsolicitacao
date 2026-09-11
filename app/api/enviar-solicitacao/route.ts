@@ -178,7 +178,7 @@ export async function POST(request: Request) {
 
     // Check if RESEND_API_KEY is set
     if (!process.env.RESEND_API_KEY) {
-      console.log("[v0] RESEND_API_KEY not set - returning PDF without sending email")
+      console.log("RESEND_API_KEY not set - returning PDF without sending email")
       // Return success but indicate email wasn't sent
       return NextResponse.json({
         success: true,
@@ -190,8 +190,8 @@ export async function POST(request: Request) {
     const resend = new Resend(process.env.RESEND_API_KEY)
     
     await resend.emails.send({
-      from: "Solicitações Fonoaudiologia <onboarding@resend.dev>",
-      to: ["fonoaudiologia@ufes.br"],
+      from: "Solicitações do Colegiado <onboarding@resend.dev>",
+      to: ["colegiado@colegiado.edu.br"],
       cc: [data.email], // Student receives a copy
       replyTo: data.email,
       subject: assunto,
@@ -223,7 +223,7 @@ export async function POST(request: Request) {
       emailSent: true,
     })
   } catch (error) {
-    console.error("[v0] Error processing request:", error)
+    console.error("Error processing request:", error)
     return NextResponse.json(
       { error: "Erro ao processar solicitação. Por favor, tente novamente." },
       { status: 500 }
