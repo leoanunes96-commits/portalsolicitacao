@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { Resend } from "resend"
 import { docentes } from "@/lib/docentes"
+import { registrarSolicitacao, marcarEmailEnviado } from "@/lib/solicitacoes"
 
 export async function POST(request: Request) {
   try {
@@ -70,6 +71,23 @@ export async function POST(request: Request) {
       })
     }
 
+    // Registra a solicitação no banco (painel de status / auditoria) antes de enviar
+    // o e-mail. Best-effort: se o banco não estiver configurado, segue sem persistir.
+    // Observação: este fluxo hoje não coleta matrícula/telefone no formulário, por
+    // isso ficam nulos aqui.
+    const solicitacaoRegistrada = await registrarSolicitacao({
+      tipoFluxo: "ATESTADO_MEDICO",
+      nomeCompleto: nome,
+      matricula: null,
+      telefone: null,
+      email,
+      dadosEspecificos: {
+        docentesSelecionados,
+        solicitarSegundaChamada,
+        descricaoAtividadePerdida: descricaoAtividadePerdida || null,
+      },
+    })
+
     const resend = new Resend(process.env.RESEND_API_KEY)
 
     // Create email HTML content
@@ -117,6 +135,8 @@ export async function POST(request: Request) {
     )
 
     await Promise.all(emailPromises)
+
+    await marcarEmailEnviado(solicitacaoRegistrada?.id)
 
     return NextResponse.json({
       success: true,

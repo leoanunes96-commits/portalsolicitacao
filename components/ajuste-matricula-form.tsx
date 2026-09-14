@@ -9,8 +9,6 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field"
 
@@ -36,14 +34,10 @@ export function AjusteMatriculaForm() {
   const {
     register,
     handleSubmit,
-    setValue,
-    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
   })
-
-  const tipoSolicitacao = watch("tipoSolicitacao")
 
   const onSubmit = async (data: FormData) => {
     setIsSubmitting(true)
@@ -246,35 +240,37 @@ export function AjusteMatriculaForm() {
           <CardDescription>Selecione o tipo de ajuste desejado</CardDescription>
         </CardHeader>
         <CardContent>
-          <RadioGroup
-            value={tipoSolicitacao}
-            onValueChange={(value) => setValue("tipoSolicitacao", value as "abertura_vaga" | "abertura_escopo")}
-            className="space-y-3"
-          >
-            <div className="flex items-start space-x-3 rounded-lg border border-border p-4 transition-colors hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-              <RadioGroupItem value="abertura_vaga" id="abertura_vaga" className="mt-0.5" />
+          <div className="space-y-3">
+            <label className="flex items-start space-x-3 rounded-lg border-2 border-border p-4 transition-colors hover:bg-muted/50 cursor-pointer has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:ring-1 has-[:checked]:ring-primary/30">
+              <input
+                type="radio"
+                value="abertura_vaga"
+                {...register("tipoSolicitacao")}
+                className="mt-1 size-4 accent-primary"
+              />
               <div className="flex-1">
-                <Label htmlFor="abertura_vaga" className="cursor-pointer font-medium">
-                  Abertura de Vaga
-                </Label>
+                <span className="text-sm leading-none font-medium">Abertura de Vaga</span>
                 <p className="text-sm text-muted-foreground">
                   Solicite a abertura de vaga em uma disciplina com vagas esgotadas
                 </p>
               </div>
-            </div>
+            </label>
 
-            <div className="flex items-start space-x-3 rounded-lg border border-border p-4 transition-colors hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-              <RadioGroupItem value="abertura_escopo" id="abertura_escopo" className="mt-0.5" />
+            <label className="flex items-start space-x-3 rounded-lg border-2 border-border p-4 transition-colors hover:bg-muted/50 cursor-pointer has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:ring-1 has-[:checked]:ring-primary/30">
+              <input
+                type="radio"
+                value="abertura_escopo"
+                {...register("tipoSolicitacao")}
+                className="mt-1 size-4 accent-primary"
+              />
               <div className="flex-1">
-                <Label htmlFor="abertura_escopo" className="cursor-pointer font-medium">
-                  Abertura de Escopo
-                </Label>
+                <span className="text-sm leading-none font-medium">Abertura de Escopo</span>
                 <p className="text-sm text-muted-foreground">
                   Solicite a inclusão de uma disciplina fora do seu escopo curricular
                 </p>
               </div>
-            </div>
-          </RadioGroup>
+            </label>
+          </div>
 
           {errors.tipoSolicitacao && (
             <p className="mt-2 text-sm text-destructive">

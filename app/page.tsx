@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { FileText, FileCheck, ScrollText, GraduationCap, SplitSquareVertical } from "lucide-react"
+import { FileText, FileCheck, ScrollText, GraduationCap, SplitSquareVertical, ListChecks } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 
 const services = [
   {
@@ -40,7 +41,7 @@ export default function HomePage() {
     <main className="min-h-screen">
       {/* Header */}
       <header className="border-b border-border bg-card">
-        <div className="mx-auto max-w-5xl px-4 py-6">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-6">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
               <GraduationCap className="h-7 w-7 text-primary-foreground" />
@@ -50,6 +51,12 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground">Instituição Pública Federal de Ensino Superior</p>
             </div>
           </div>
+          <Link href="/minhas-solicitacoes">
+            <Button variant="outline" size="sm" className="gap-2">
+              <ListChecks className="h-4 w-4" />
+              Minhas Solicitações
+            </Button>
+          </Link>
         </div>
       </header>
 

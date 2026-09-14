@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
-import { PDFDocument, StandardFonts } from "pdf-lib"
+import { PDFDocument, StandardFonts, PageSizes } from "pdf-lib"
 import { Resend } from "resend"
-import fs from "fs/promises"
-import path from "path"
+import { registrarSolicitacao, marcarEmailEnviado } from "@/lib/solicitacoes"
 
 interface SolicitacaoData {
   nomeCompleto: string
@@ -29,144 +28,75 @@ export async function POST(request: Request) {
       )
     }
 
-    // Load the PDF template
-    const templatePath = path.join(process.cwd(), "public", "formulario_template.pdf")
-    const templateBytes = await fs.readFile(templatePath)
-    
-    // Create a new PDF document from the template
-    const pdfDoc = await PDFDocument.load(templateBytes)
+    // Gera o PDF do zero (em vez de preencher um template fixo). Evita depender
+    // de um arquivo de layout fixo e garante que o conteúdo é sempre genérico
+    // (nenhum nome de instituição é inserido aqui, só o que vem do formulário).
+    const pdfDoc = await PDFDocument.create()
     const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
     const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-    
-    const pages = pdfDoc.getPages()
-    const firstPage = pages[0]
-    
-    // Get page dimensions
-    const { height } = firstPage.getSize()
-    
-    // Map tipo de solicitação to display text
-    const tipoSolicitacaoTexto = data.tipoSolicitacao === "abertura_vaga" 
-      ? "Aumento de Vaga" 
+
+    const firstPage = pdfDoc.addPage(PageSizes.A4)
+    const { width, height } = firstPage.getSize()
+    const margin = 56
+    let cursorY = height - margin
+
+    const tipoSolicitacaoTexto = data.tipoSolicitacao === "abertura_vaga"
+      ? "Aumento de Vaga"
       : "Abertura de Escopo"
 
-    // Fill in the form fields
-    // Checkbox marking based on tipo de solicitação
-    // The PDF has checkboxes at specific positions
-    
-    // Mark the appropriate checkbox (X mark)
-    if (data.tipoSolicitacao === "abertura_escopo") {
-      // Abertura de Escopo checkbox
-      firstPage.drawText("X", {
-        x: 188,
-        y: height - 152,
-        size: 12,
-        font: helveticaBold,
-      })
-    } else {
-      // Aumento de Vaga checkbox
-      firstPage.drawText("X", {
-        x: 289,
-        y: height - 152,
-        size: 12,
-        font: helveticaBold,
-      })
+    const writeLine = (text: string, opts: { size?: number; font?: typeof helveticaFont; gap?: number } = {}) => {
+      const size = opts.size ?? 11
+      const font = opts.font ?? helveticaFont
+      firstPage.drawText(text, { x: margin, y: cursorY, size, font, maxWidth: width - margin * 2 })
+      cursorY -= opts.gap ?? size + 10
     }
 
-    // Fill in student information
-    // Aluno (Name)
-    firstPage.drawText(data.nomeCompleto, {
-      x: 80,
-      y: height - 187,
-      size: 10,
-      font: helveticaFont,
-    })
+    writeLine("FORMULÁRIO DE SOLICITAÇÃO — AJUSTE DE MATRÍCULA", { size: 14, font: helveticaBold, gap: 22 })
+    writeLine("Colegiado de Curso de Graduação", { size: 10 })
+    cursorY -= 10
 
-    // Matrícula
-    firstPage.drawText(data.matricula, {
-      x: 80,
-      y: height - 206,
-      size: 10,
-      font: helveticaFont,
-    })
+    writeLine("Tipo de solicitação:", { size: 11, font: helveticaBold })
+    writeLine(`${data.tipoSolicitacao === "abertura_vaga" ? "[X]" : "[ ]"} Aumento de Vaga`)
+    writeLine(`${data.tipoSolicitacao === "abertura_escopo" ? "[X]" : "[ ]"} Abertura de Escopo`)
+    cursorY -= 10
 
-    // Telefone
-    firstPage.drawText(data.telefone, {
-      x: 65,
-      y: height - 225,
-      size: 10,
-      font: helveticaFont,
-    })
+    writeLine("Dados do requerente:", { size: 11, font: helveticaBold })
+    writeLine(`Nome completo: ${data.nomeCompleto}`)
+    writeLine(`Matrícula: ${data.matricula}`)
+    writeLine(`Telefone: ${data.telefone}`)
+    writeLine(`E-mail: ${data.email}`)
+    cursorY -= 10
 
-    // E-mail
-    firstPage.drawText(data.email, {
-      x: 75,
-      y: height - 244,
-      size: 10,
-      font: helveticaFont,
-    })
-
-    // Discipline table - first row
-    // Código
-    firstPage.drawText(data.codigoDisciplina, {
-      x: 68,
-      y: height - 288,
-      size: 9,
-      font: helveticaFont,
-    })
-
-    // Nome da disciplina
-    firstPage.drawText(data.nomeDisciplina, {
-      x: 162,
-      y: height - 288,
-      size: 9,
-      font: helveticaFont,
-    })
-
-    // Turma
+    writeLine("Dados da disciplina:", { size: 11, font: helveticaBold })
+    writeLine(`Código: ${data.codigoDisciplina}`)
+    writeLine(`Nome da disciplina: ${data.nomeDisciplina}`)
     if (data.turma) {
-      firstPage.drawText(data.turma, {
-        x: 372,
-        y: height - 288,
-        size: 9,
-        font: helveticaFont,
-      })
+      writeLine(`Turma: ${data.turma}`)
     }
+    cursorY -= 10
 
-    // Justificativa
     const justificativa = `Solicitação de ${tipoSolicitacaoTexto.toLowerCase()} para a disciplina ${data.nomeDisciplina} (${data.codigoDisciplina}).`
-    firstPage.drawText(justificativa, {
-      x: 68,
-      y: height - 410,
-      size: 9,
-      font: helveticaFont,
-      maxWidth: 480,
-    })
+    writeLine("Justificativa:", { size: 11, font: helveticaBold })
+    writeLine(justificativa, { gap: 30 })
 
-    // Current date
     const today = new Date()
-    const day = String(today.getDate()).padStart(2, "0")
-    const month = String(today.getMonth() + 1).padStart(2, "0")
-    const year = String(today.getFullYear())
+    const dataFormatada = `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}/${today.getFullYear()}`
+    writeLine(`Data da solicitação: ${dataFormatada}`)
 
-    firstPage.drawText(day, {
-      x: 435,
-      y: height - 470,
-      size: 10,
-      font: helveticaFont,
-    })
-
-    firstPage.drawText(month, {
-      x: 458,
-      y: height - 470,
-      size: 10,
-      font: helveticaFont,
-    })
-
-    firstPage.drawText(year, {
-      x: 480,
-      y: height - 470,
-      size: 10,
-      font: helveticaFont,
+    // Registra a solicitação no banco (painel de status / auditoria) antes de enviar
+    // o e-mail. Best-effort: se o banco não estiver configurado, segue sem persistir.
+    const solicitacaoRegistrada = await registrarSolicitacao({
+      tipoFluxo: "AJUSTE_MATRICULA",
+      nomeCompleto: data.nomeCompleto,
+      matricula: data.matricula,
+      telefone: data.telefone,
+      email: data.email,
+      dadosEspecificos: {
+        codigoDisciplina: data.codigoDisciplina,
+        nomeDisciplina: data.nomeDisciplina,
+        turma: data.turma ?? null,
+        tipoSolicitacao: data.tipoSolicitacao,
+      },
     })
 
     // Serialize the PDFDocument to bytes
@@ -216,6 +146,8 @@ export async function POST(request: Request) {
         },
       ],
     })
+
+    await marcarEmailEnviado(solicitacaoRegistrada?.id)
 
     return NextResponse.json({
       success: true,

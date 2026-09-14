@@ -1,0 +1,77 @@
+// Esquema do banco de dados (Prisma) do Portal de Solicitações do Colegiado de Curso.
+// Nomes de entidades e campos em português, seguindo a convenção do projeto (ver CLAUDE.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // URL de conexão via pooler (usada em runtime pelas rotas da aplicação)
+  url       = env("DATABASE_URL")
+  // URL de conexão direta (usada só pelo Prisma para rodar migrations)
+  directUrl = env("DIRECT_URL")
+}
+
+enum TipoFluxo {
+  AJUSTE_MATRICULA
+  QUEBRA_PRE_REQUISITO
+  ATESTADO_MEDICO
+}
+
+enum StatusSolicitacao {
+  RECEBIDO
+  EM_ANALISE
+  DEFERIDO
+  INDEFERIDO
+}
+
+// Uma solicitação discente, de qualquer um dos três fluxos-piloto.
+// Os campos específicos de cada fluxo (ex.: código da disciplina, justificativa,
+// docentes selecionados) variam entre fluxos e ficam em `dadosEspecificos` (JSON),
+// em vez de uma tabela por fluxo — mantém o esquema simples para este MVP.
+model Solicitacao {
+  id                String                       @id @default(cuid())
+  tipoFluxo         TipoFluxo
+  statusSolicitacao StatusSolicitacao             @default(RECEBIDO)
+
+  nomeCompleto      String
+  // Nem todo fluxo coleta matrícula/telefone hoje (ex.: atestado médico não coleta) —
+  // por isso ficam opcionais aqui, e não obrigatórios como em `email`.
+  matricula         String?
+  telefone          String?
+  email             String
+
+  dadosEspecificos  Json
+
+  emailNotificacaoEnviado Boolean @default(false)
+
+  criadoEm          DateTime                     @default(now())
+  atualizadoEm      DateTime                     @updatedAt
+
+  historico         HistoricoStatusSolicitacao[]
+
+  @@index([email])
+  @@index([tipoFluxo])
+}
+
+// Registro de auditoria: toda mudança de status de uma solicitação gera uma linha aqui
+// (RNF "toda mudança de status registrada para auditoria"). A criação da solicitação
+// também gera a primeira linha (statusAnterior nulo -> RECEBIDO).
+model HistoricoStatusSolicitacao {
+  id             String             @id @default(cuid())
+
+  solicitacaoId  String
+  solicitacao    Solicitacao        @relation(fields: [solicitacaoId], references: [id], onDelete: Cascade)
+
+  statusAnterior StatusSolicitacao?
+  statusNovo     StatusSolicitacao
+
+  // Login institucional (RNF1) ainda é mockado — por isso não há, por ora, um campo
+  // "alteradoPor" referenciando um usuário real autenticado.
+  observacao     String?
+
+  alteradoEm     DateTime           @default(now())
+
+  @@index([solicitacaoId])
+}

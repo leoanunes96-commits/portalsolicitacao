@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { Resend } from "resend"
+import { registrarSolicitacao, marcarEmailEnviado } from "@/lib/solicitacoes"
 
 export async function POST(request: Request) {
   try {
@@ -75,6 +76,22 @@ export async function POST(request: Request) {
       })
     }
 
+    // Registra a solicitação no banco (painel de status / auditoria) antes de enviar
+    // o e-mail. Best-effort: se o banco não estiver configurado, segue sem persistir.
+    const solicitacaoRegistrada = await registrarSolicitacao({
+      tipoFluxo: "QUEBRA_PRE_REQUISITO",
+      nomeCompleto,
+      matricula,
+      telefone,
+      email,
+      dadosEspecificos: {
+        codigoDisciplina,
+        nomeDisciplina,
+        justificativa,
+        possuiHistoricoParcial: Boolean(historicoBase64),
+      },
+    })
+
     const resend = new Resend(process.env.RESEND_API_KEY)
 
     await resend.emails.send({
@@ -101,6 +118,8 @@ export async function POST(request: Request) {
       `,
       attachments,
     })
+
+    await marcarEmailEnviado(solicitacaoRegistrada?.id)
 
     return NextResponse.json({
       success: true,
