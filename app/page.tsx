@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { FileText, FileCheck, ScrollText, GraduationCap, SplitSquareVertical, ListChecks } from "lucide-react"
+import { FileText, FileCheck, ScrollText, GraduationCap, SplitSquareVertical, ListChecks, ShieldCheck } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
@@ -51,12 +51,20 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground">Instituição Pública Federal de Ensino Superior</p>
             </div>
           </div>
-          <Link href="/minhas-solicitacoes">
-            <Button variant="outline" size="sm" className="gap-2">
-              <ListChecks className="h-4 w-4" />
-              Minhas Solicitações
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/minhas-solicitacoes">
+              <Button variant="outline" size="sm" className="gap-2">
+                <ListChecks className="h-4 w-4" />
+                Minhas Solicitações
+              </Button>
+            </Link>
+            <Link href="/admin">
+              <Button variant="outline" size="sm" className="gap-2">
+                <ShieldCheck className="h-4 w-4" />
+                Admin
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 
