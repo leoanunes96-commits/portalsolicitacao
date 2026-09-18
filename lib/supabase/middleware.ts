@@ -1,13 +1,24 @@
 // Renovação da sessão do Supabase Auth a cada requisição, e redirecionamento
 // para /login em toda a aplicação, exceto nos poucos caminhos que precisam
 // ficar acessíveis sem sessão: a própria tela de login/cadastro, a rota de
-// cadastro, e a área administrativa (que usa uma conta fixa única à parte -
-// ver lib/admin-auth.ts -, pensada para a equipe técnico-administrativa,
-// não para discentes).
+// cadastro, o fluxo de recuperação de senha (solicitação, callback do link
+// de e-mail e definição da nova senha), e a área administrativa (que usa uma
+// conta fixa única à parte - ver lib/admin-auth.ts -, pensada para a equipe
+// técnico-administrativa, não para discentes).
 import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-const PREFIXOS_PUBLICOS = ["/login", "/api/auth", "/admin", "/api/admin"]
+const PREFIXOS_PUBLICOS = [
+  "/login",
+  "/criar-conta",
+  "/api/auth",
+  "/esqueci-senha",
+  "/redefinir-senha",
+  "/auth/callback",
+  "/auth/confirm",
+  "/admin",
+  "/api/admin",
+]
 
 function rotaEhPublica(pathname: string) {
   return PREFIXOS_PUBLICOS.some(
