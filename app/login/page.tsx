@@ -2,7 +2,7 @@
 
 import { Suspense } from "react"
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
+import { ShieldCheck } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { LoginForm } from "@/components/login-form"
@@ -12,11 +12,11 @@ export default function LoginPage() {
     <main className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card">
-        <div className="mx-auto max-w-3xl px-4 py-4">
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Voltar ao Início
+        <div className="mx-auto flex max-w-3xl items-center justify-end px-4 py-4">
+          <Link href="/admin">
+            <Button variant="outline" size="sm" className="gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Admin
             </Button>
           </Link>
         </div>

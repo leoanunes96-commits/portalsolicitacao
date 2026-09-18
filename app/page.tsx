@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { FileText, FileCheck, ScrollText, GraduationCap, SplitSquareVertical, ListChecks, ShieldCheck, LogOut } from "lucide-react"
+import { FileText, FileCheck, ScrollText, GraduationCap, SplitSquareVertical, ListChecks, LogOut } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
@@ -67,12 +67,6 @@ export default function HomePage() {
               <Button variant="outline" size="sm" className="gap-2">
                 <ListChecks className="h-4 w-4" />
                 Minhas Solicitações
-              </Button>
-            </Link>
-            <Link href="/admin">
-              <Button variant="outline" size="sm" className="gap-2">
-                <ShieldCheck className="h-4 w-4" />
-                Admin
               </Button>
             </Link>
             <Button type="button" variant="ghost" size="sm" onClick={sair} className="gap-2">
