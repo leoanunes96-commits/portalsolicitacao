@@ -28,9 +28,7 @@ export default function MinhasSolicitacoesPage() {
             Minhas Solicitações
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Informe o e-mail usado ao abrir a solicitação para acompanhar o status.
-            Como o login institucional ainda não foi implementado, a consulta é feita
-            pelo e-mail informado, não por uma conta autenticada.
+            Acompanhe o status das solicitações abertas com a sua conta.
           </p>
         </div>
 
