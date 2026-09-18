@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verificarCodigoAdmin } from "@/lib/admin-auth"
+import { verificarLoginAdmin } from "@/lib/admin-auth"
 import type { StatusSolicitacao } from "@prisma/client"
 
 // Valores aceitos para "Status do Ticket" na área administrativa - os mesmos
@@ -16,7 +16,7 @@ interface RouteParams {
 // juntas, ou nenhuma acontece. Também aceita uma "observação" de texto livre
 // para descrever a situação atual ou solicitar correção.
 export async function PATCH(request: Request, { params }: RouteParams) {
-  if (!verificarCodigoAdmin(request)) {
+  if (!verificarLoginAdmin(request)) {
     return NextResponse.json({ error: "Acesso não autorizado." }, { status: 401 })
   }
 
@@ -78,7 +78,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 // restrita à área administrativa. O histórico de status é removido em
 // cascata (ver onDelete: Cascade em prisma/schema.prisma).
 export async function DELETE(request: Request, { params }: RouteParams) {
-  if (!verificarCodigoAdmin(request)) {
+  if (!verificarLoginAdmin(request)) {
     return NextResponse.json({ error: "Acesso não autorizado." }, { status: 401 })
   }
 

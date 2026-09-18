@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verificarCodigoAdmin } from "@/lib/admin-auth"
+import { verificarLoginAdmin } from "@/lib/admin-auth"
 
 // Área administrativa: lista TODAS as solicitações (de todos os discentes),
 // sem filtro por e-mail — ao contrário de GET /api/solicitacoes, que é usado
 // pela tela "Minhas Solicitações". Acesso restrito por código de admin
 // temporário (ver lib/admin-auth.ts) até existir login institucional (RNF1).
 export async function GET(request: Request) {
-  if (!verificarCodigoAdmin(request)) {
+  if (!verificarLoginAdmin(request)) {
     return NextResponse.json({ error: "Acesso não autorizado." }, { status: 401 })
   }
 

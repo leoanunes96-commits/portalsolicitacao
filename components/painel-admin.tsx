@@ -67,14 +67,20 @@ function formatarData(iso: string) {
   })
 }
 
-// Guarda o código de admin só nesta aba/sessão do navegador (nunca em
-// localStorage persistente) - é um substituto temporário de login (RNF1),
-// não deve parecer uma sessão "de verdade".
-const CHAVE_SESSION_STORAGE = "portal-admin-codigo"
+// Guarda as credenciais de admin só nesta aba/sessão do navegador (nunca em
+// localStorage persistente) - é uma conta única fixa, não um login de
+// verdade com múltiplos usuários, não deve parecer uma sessão "de verdade".
+const CHAVE_SESSION_STORAGE = "portal-admin-credenciais"
+
+interface CredenciaisAdmin {
+  login: string
+  senha: string
+}
 
 export function PainelAdmin() {
-  const [codigo, setCodigo] = useState("")
-  const [codigoConfirmado, setCodigoConfirmado] = useState<string | null>(null)
+  const [login, setLogin] = useState("")
+  const [senha, setSenha] = useState("")
+  const [credenciaisConfirmadas, setCredenciaisConfirmadas] = useState<CredenciaisAdmin | null>(null)
   const [erroAcesso, setErroAcesso] = useState<string | null>(null)
 
   const [isLoading, setIsLoading] = useState(false)
@@ -90,25 +96,29 @@ export function PainelAdmin() {
   useEffect(() => {
     const salvo = sessionStorage.getItem(CHAVE_SESSION_STORAGE)
     if (salvo) {
-      setCodigoConfirmado(salvo)
+      try {
+        setCredenciaisConfirmadas(JSON.parse(salvo) as CredenciaisAdmin)
+      } catch {
+        sessionStorage.removeItem(CHAVE_SESSION_STORAGE)
+      }
     }
   }, [])
 
-  const buscarSolicitacoes = async (codigoParaUsar: string) => {
+  const buscarSolicitacoes = async (credenciais: CredenciaisAdmin) => {
     setIsLoading(true)
     setErro(null)
 
     try {
       const response = await fetch("/api/admin/solicitacoes", {
-        headers: { "x-admin-code": codigoParaUsar },
+        headers: { "x-admin-login": credenciais.login, "x-admin-senha": credenciais.senha },
       })
       const result = await response.json()
 
       if (response.status === 401) {
-        // Código errado: limpa a sessão e volta para a tela de acesso.
+        // Usuário ou senha errados: limpa a sessão e volta para a tela de acesso.
         sessionStorage.removeItem(CHAVE_SESSION_STORAGE)
-        setCodigoConfirmado(null)
-        setErroAcesso("Código de acesso incorreto.")
+        setCredenciaisConfirmadas(null)
+        setErroAcesso("Usuário ou senha incorretos.")
         return
       }
 
@@ -125,18 +135,19 @@ export function PainelAdmin() {
   }
 
   useEffect(() => {
-    if (codigoConfirmado) {
-      buscarSolicitacoes(codigoConfirmado)
+    if (credenciaisConfirmadas) {
+      buscarSolicitacoes(credenciaisConfirmadas)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [codigoConfirmado])
+  }, [credenciaisConfirmadas])
 
   const entrar = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!codigo) return
+    if (!login || !senha) return
     setErroAcesso(null)
-    sessionStorage.setItem(CHAVE_SESSION_STORAGE, codigo)
-    setCodigoConfirmado(codigo)
+    const credenciais: CredenciaisAdmin = { login, senha }
+    sessionStorage.setItem(CHAVE_SESSION_STORAGE, JSON.stringify(credenciais))
+    setCredenciaisConfirmadas(credenciais)
   }
 
   const rascunhoDe = (s: Solicitacao) =>
@@ -153,7 +164,7 @@ export function PainelAdmin() {
   }
 
   const salvar = async (s: Solicitacao) => {
-    if (!codigoConfirmado) return
+    if (!credenciaisConfirmadas) return
     const rascunho = rascunhoDe(s)
     setSalvandoId(s.id)
     setErro(null)
@@ -161,7 +172,11 @@ export function PainelAdmin() {
     try {
       const response = await fetch(`/api/admin/solicitacoes/${s.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-admin-code": codigoConfirmado },
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-login": credenciaisConfirmadas.login,
+          "x-admin-senha": credenciaisConfirmadas.senha,
+        },
         body: JSON.stringify({ statusNovo: rascunho.status, observacao: rascunho.observacao }),
       })
       const result = await response.json()
@@ -170,7 +185,7 @@ export function PainelAdmin() {
         throw new Error(result.error || "Erro ao salvar alteração")
       }
 
-      await buscarSolicitacoes(codigoConfirmado)
+      await buscarSolicitacoes(credenciaisConfirmadas)
       setRascunhos((atual) => {
         const { [s.id]: _removido, ...resto } = atual
         return resto
@@ -183,7 +198,7 @@ export function PainelAdmin() {
   }
 
   const excluir = async (s: Solicitacao) => {
-    if (!codigoConfirmado) return
+    if (!credenciaisConfirmadas) return
     const confirmar = window.confirm(
       `Excluir permanentemente a solicitação de ${s.nomeCompleto}? Esta ação não pode ser desfeita.`
     )
@@ -195,7 +210,10 @@ export function PainelAdmin() {
     try {
       const response = await fetch(`/api/admin/solicitacoes/${s.id}`, {
         method: "DELETE",
-        headers: { "x-admin-code": codigoConfirmado },
+        headers: {
+          "x-admin-login": credenciaisConfirmadas.login,
+          "x-admin-senha": credenciaisConfirmadas.senha,
+        },
       })
 
       if (!response.ok) {
@@ -203,7 +221,7 @@ export function PainelAdmin() {
         throw new Error(result.error || "Erro ao excluir solicitação")
       }
 
-      await buscarSolicitacoes(codigoConfirmado)
+      await buscarSolicitacoes(credenciaisConfirmadas)
     } catch (error) {
       setErro(error instanceof Error ? error.message : "Erro ao excluir solicitação")
     } finally {
@@ -211,8 +229,9 @@ export function PainelAdmin() {
     }
   }
 
-  // Tela de acesso: pede o código de admin antes de mostrar qualquer dado.
-  if (!codigoConfirmado) {
+  // Tela de acesso: pede usuário e senha da conta administrativa antes de
+  // mostrar qualquer dado.
+  if (!credenciaisConfirmadas) {
     return (
       <Card className="mx-auto max-w-sm">
         <CardHeader>
@@ -220,18 +239,30 @@ export function PainelAdmin() {
             <Lock className="h-4 w-4" /> Acesso restrito
           </CardTitle>
           <CardDescription>
-            Informe o código de acesso administrativo para continuar.
+            Informe o usuário e a senha da conta administrativa para continuar.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={entrar} className="space-y-4">
             <Field>
-              <FieldLabel htmlFor="codigo-admin">Código de acesso</FieldLabel>
+              <FieldLabel htmlFor="login-admin">Usuário</FieldLabel>
               <Input
-                id="codigo-admin"
+                id="login-admin"
+                type="text"
+                autoComplete="username"
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
+                required
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="senha-admin">Senha</FieldLabel>
+              <Input
+                id="senha-admin"
                 type="password"
-                value={codigo}
-                onChange={(e) => setCodigo(e.target.value)}
+                autoComplete="current-password"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
                 required
               />
             </Field>
@@ -271,7 +302,7 @@ export function PainelAdmin() {
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => buscarSolicitacoes(codigoConfirmado)}
+          onClick={() => buscarSolicitacoes(credenciaisConfirmadas!)}
           disabled={isLoading}
         >
           {isLoading ? (

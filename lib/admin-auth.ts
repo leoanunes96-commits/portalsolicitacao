@@ -1,22 +1,24 @@
 // Verificação de acesso à área administrativa (/admin). NÃO é um sistema de
-// login real — isso depende do RNF1 (login institucional), que ainda é
-// mockado neste projeto. É um código de acesso compartilhado, guardado numa
-// variável de ambiente, só para não deixar a área de administração (onde é
-// possível alterar status e excluir solicitações) completamente aberta
-// enquanto o login de verdade não existe. Deve ser substituído por
-// autenticação real quando o RNF1 for implementado.
-export function verificarCodigoAdmin(request: Request): boolean {
-  const codigoConfigurado = process.env.ADMIN_ACCESS_CODE
+// login real como o Supabase Auth usado pelos discentes - é uma conta única
+// e fixa (usuário + senha), guardada em variáveis de ambiente, só para não
+// deixar a área de administração (onde é possível alterar status e excluir
+// solicitações) completamente aberta enquanto não existir autenticação de
+// verdade (com papéis/roles) para a equipe técnico-administrativa.
+export function verificarLoginAdmin(request: Request): boolean {
+  const loginConfigurado = process.env.ADMIN_LOGIN
+  const senhaConfigurada = process.env.ADMIN_SENHA
 
-  if (!codigoConfigurado) {
-    // Sem código configurado nesta instância: não bloqueia (conveniência em
-    // desenvolvimento local), mas avisa no log do servidor.
+  if (!loginConfigurado || !senhaConfigurada) {
+    // Sem credenciais configuradas nesta instância: não bloqueia (conveniência
+    // em desenvolvimento local), mas avisa no log do servidor.
     console.warn(
-      "ADMIN_ACCESS_CODE não configurado - área administrativa sem proteção nesta instância."
+      "ADMIN_LOGIN/ADMIN_SENHA não configurados - área administrativa sem proteção nesta instância."
     )
     return true
   }
 
-  const codigoRecebido = request.headers.get("x-admin-code")
-  return codigoRecebido === codigoConfigurado
+  const loginRecebido = request.headers.get("x-admin-login")
+  const senhaRecebida = request.headers.get("x-admin-senha")
+
+  return loginRecebido === loginConfigurado && senhaRecebida === senhaConfigurada
 }
