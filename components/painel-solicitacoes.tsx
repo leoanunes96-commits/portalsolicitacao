@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
-import { Loader2, Search } from "lucide-react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { Loader2, LogOut } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Field, FieldLabel } from "@/components/ui/field"
+import { createClient } from "@/lib/supabase/client"
 
 type StatusSolicitacao = "RECEBIDO" | "EM_ANALISE" | "DEFERIDO" | "INDEFERIDO"
 type TipoFluxo = "AJUSTE_MATRICULA" | "QUEBRA_PRE_REQUISITO" | "ATESTADO_MEDICO"
@@ -60,58 +60,64 @@ function formatarData(iso: string) {
 }
 
 export function PainelSolicitacoes() {
-  const [email, setEmail] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+  const [emailLogado, setEmailLogado] = useState<string | null>(null)
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[] | null>(null)
 
-  const buscar = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email) return
+  useEffect(() => {
+    const buscar = async () => {
+      setIsLoading(true)
+      setErro(null)
 
-    setIsLoading(true)
-    setErro(null)
+      try {
+        const response = await fetch("/api/solicitacoes")
+        const result = await response.json()
 
-    try {
-      const response = await fetch(`/api/solicitacoes?email=${encodeURIComponent(email)}`)
-      const result = await response.json()
+        if (!response.ok) {
+          throw new Error(result.error || "Erro ao consultar solicitações")
+        }
 
-      if (!response.ok) {
-        throw new Error(result.error || "Erro ao consultar solicitações")
+        setSolicitacoes(result.solicitacoes)
+      } catch (error) {
+        setErro(error instanceof Error ? error.message : "Erro ao consultar solicitações")
+      } finally {
+        setIsLoading(false)
       }
-
-      setSolicitacoes(result.solicitacoes)
-    } catch (error) {
-      setErro(error instanceof Error ? error.message : "Erro ao consultar solicitações")
-      setSolicitacoes(null)
-    } finally {
-      setIsLoading(false)
     }
+
+    const supabase = createClient()
+    supabase.auth.getUser().then((result) => setEmailLogado(result.data.user?.email ?? null))
+
+    buscar()
+  }, [])
+
+  const sair = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push("/login")
+    router.refresh()
   }
 
   return (
     <div className="space-y-6">
-      <form onSubmit={buscar} className="flex flex-col gap-4 sm:flex-row sm:items-end">
-        <Field className="flex-1">
-          <FieldLabel htmlFor="email-painel">E-mail usado na solicitação</FieldLabel>
-          <Input
-            id="email-painel"
-            type="email"
-            placeholder="seu@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </Field>
-        <Button type="submit" disabled={isLoading} className="sm:mb-0">
-          {isLoading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Search className="mr-2 h-4 w-4" />
-          )}
-          Buscar
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          {emailLogado ? `Conectado(a) como ${emailLogado}` : ""}
+        </p>
+        <Button type="button" variant="ghost" size="sm" onClick={sair} className="gap-2">
+          <LogOut className="h-4 w-4" />
+          Sair
         </Button>
-      </form>
+      </div>
+
+      {isLoading && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Carregando suas solicitações...
+        </div>
+      )}
 
       {erro && (
         <p className="text-sm text-destructive" role="alert">
@@ -119,9 +125,9 @@ export function PainelSolicitacoes() {
         </p>
       )}
 
-      {solicitacoes && solicitacoes.length === 0 && (
+      {!isLoading && solicitacoes && solicitacoes.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          Nenhuma solicitação encontrada para este e-mail.
+          Você ainda não tem solicitações registradas.
         </p>
       )}
 

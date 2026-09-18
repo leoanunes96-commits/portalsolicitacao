@@ -1,9 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { FileText, FileCheck, ScrollText, GraduationCap, SplitSquareVertical, ListChecks, ShieldCheck } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { FileText, FileCheck, ScrollText, GraduationCap, SplitSquareVertical, ListChecks, ShieldCheck, LogOut } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { createClient } from "@/lib/supabase/client"
 
 const services = [
   {
@@ -37,6 +39,15 @@ const services = [
 ]
 
 export default function HomePage() {
+  const router = useRouter()
+
+  const sair = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push("/login")
+    router.refresh()
+  }
+
   return (
     <main className="min-h-screen">
       {/* Header */}
@@ -64,6 +75,10 @@ export default function HomePage() {
                 Admin
               </Button>
             </Link>
+            <Button type="button" variant="ghost" size="sm" onClick={sair} className="gap-2">
+              <LogOut className="h-4 w-4" />
+              Sair
+            </Button>
           </div>
         </div>
       </header>

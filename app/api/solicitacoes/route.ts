@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { createClient } from "@/lib/supabase/server"
 
-// Painel de status por solicitação (RF3). Login institucional (RNF1) ainda é
-// mockado, então por ora o filtro é feito pelo e-mail informado pelo(a) discente,
-// em vez de uma sessão autenticada — é o único campo comum aos três fluxos-piloto.
-export async function GET(request: Request) {
+// Painel de status por solicitação (RF3). O e-mail usado para filtrar vem
+// da sessão autenticada (Supabase Auth) - não é mais recebido como parâmetro
+// da requisição, para que não seja possível consultar as solicitações de
+// outra pessoa só sabendo o e-mail dela (gap de segurança que existia
+// enquanto o RNF1/login institucional era mockado).
+export async function GET() {
   if (!process.env.DATABASE_URL) {
     return NextResponse.json(
       { error: "Banco de dados não configurado nesta instância." },
@@ -12,15 +15,16 @@ export async function GET(request: Request) {
     )
   }
 
-  const { searchParams } = new URL(request.url)
-  const email = searchParams.get("email")?.trim().toLowerCase()
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!email) {
-    return NextResponse.json(
-      { error: "Informe o e-mail usado na solicitação." },
-      { status: 400 }
-    )
+  if (!user?.email) {
+    return NextResponse.json({ error: "Sessão não autenticada." }, { status: 401 })
   }
+
+  const email = user.email.trim().toLowerCase()
 
   try {
     const solicitacoes = await prisma.solicitacao.findMany({
