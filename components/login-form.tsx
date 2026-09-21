@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client"
 const MENSAGENS_CONTA: Record<string, string> = {
   "confirmar-email": "Conta criada! Verifique seu e-mail para confirmar o cadastro antes de entrar.",
   "conta-criada": "Conta criada com sucesso! Você já pode entrar.",
+  "senha-redefinida": "Senha atualizada com sucesso! Você já pode entrar com a nova senha.",
 }
 
 export function LoginForm() {

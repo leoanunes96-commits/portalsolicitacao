@@ -1,9 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { KeyRound, Loader2 } from "lucide-react"
-import type { EmailOtpType } from "@supabase/supabase-js"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,16 +10,52 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldLabel } from "@/components/ui/field"
 import { createClient } from "@/lib/supabase/client"
 
+// null = ainda verificando o link, true = sessão de recuperação válida,
+// false = link inválido/expirado.
+type EstadoLink = boolean | null
+
 export function RedefinirSenhaForm() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const tokenHash = searchParams.get("token_hash")
-  const type = searchParams.get("type") as EmailOtpType | null
+  const [linkValido, setLinkValido] = useState<EstadoLink>(null)
 
   const [senha, setSenha] = useState("")
   const [confirmarSenha, setConfirmarSenha] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    // O link do e-mail de recuperação (template padrão do Supabase) traz a
+    // sessão embutida na própria URL. O client do Supabase detecta isso
+    // sozinho ao carregar a página e dispara o evento PASSWORD_RECOVERY
+    // quando essa sessão temporária fica pronta - não precisamos extrair
+    // nem verificar nenhum token manualmente.
+    const { data: escuta } = supabase.auth.onAuthStateChange((evento) => {
+      if (evento === "PASSWORD_RECOVERY") {
+        setLinkValido(true)
+      }
+    })
+
+    // Cobre o caso (raro) de a sessão já ter sido processada antes deste
+    // componente montar e escutar o evento acima.
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        setLinkValido((atual) => (atual === null ? true : atual))
+      }
+    })
+
+    // Depois de um tempo razoável sem nenhuma confirmação, assume que o
+    // link é inválido ou já expirou.
+    const tempoLimite = setTimeout(() => {
+      setLinkValido((atual) => (atual === null ? false : atual))
+    }, 4000)
+
+    return () => {
+      escuta.subscription.unsubscribe()
+      clearTimeout(tempoLimite)
+    }
+  }, [])
 
   const redefinir = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,34 +69,10 @@ export function RedefinirSenhaForm() {
       setErro("As senhas não coincidem.")
       return
     }
-    if (!tokenHash || !type) {
-      setErro('Link inválido ou incompleto. Solicite um novo em "Esqueci minha senha".')
-      return
-    }
 
     setIsLoading(true)
 
     const supabase = createClient()
-
-    // De propósito, só consumimos o token do link (verifyOtp) aqui, dentro do
-    // clique da pessoa - nunca automaticamente ao abrir a página. Muitos
-    // provedores de e-mail (Outlook/Defender, por exemplo) "pré-visitam" links
-    // recebidos para checar segurança; se a verificação rodasse já no
-    // carregamento da página, esse acesso automático consumiria o link (que é
-    // de uso único) antes da pessoa clicar de verdade.
-    const { error: erroVerificacao } = await supabase.auth.verifyOtp({
-      type,
-      token_hash: tokenHash,
-    })
-
-    if (erroVerificacao) {
-      setIsLoading(false)
-      setErro(
-        'Não foi possível validar o link. Ele pode ter expirado ou já ter sido usado - solicite um novo em "Esqueci minha senha".'
-      )
-      return
-    }
-
     const { error } = await supabase.auth.updateUser({ password: senha })
 
     setIsLoading(false)
@@ -71,15 +82,31 @@ export function RedefinirSenhaForm() {
       return
     }
 
-    router.push("/login")
+    router.push("/login?conta=senha-redefinida")
     router.refresh()
+  }
+
+  if (linkValido === false) {
+    return (
+      <Card className="mx-auto max-w-sm">
+        <CardHeader>
+          <CardTitle className="text-base">Link inválido ou expirado</CardTitle>
+          <CardDescription>
+            Esse link de redefinição não é mais válido. Solicite um novo em &quot;Esqueci minha
+            senha&quot;.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    )
   }
 
   return (
     <Card className="mx-auto max-w-sm">
       <CardHeader>
         <CardTitle className="text-base">Definir nova senha</CardTitle>
-        <CardDescription>Escolha uma nova senha para sua conta.</CardDescription>
+        <CardDescription>
+          {linkValido === null ? "Validando seu link..." : "Escolha uma nova senha para sua conta."}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={redefinir} className="space-y-4">
@@ -92,6 +119,7 @@ export function RedefinirSenhaForm() {
               onChange={(e) => setSenha(e.target.value)}
               minLength={6}
               required
+              disabled={linkValido !== true}
             />
           </Field>
           <Field>
@@ -103,6 +131,7 @@ export function RedefinirSenhaForm() {
               onChange={(e) => setConfirmarSenha(e.target.value)}
               minLength={6}
               required
+              disabled={linkValido !== true}
             />
           </Field>
 
@@ -112,7 +141,7 @@ export function RedefinirSenhaForm() {
             </p>
           )}
 
-          <Button type="submit" className="w-full gap-2" disabled={isLoading}>
+          <Button type="submit" className="w-full gap-2" disabled={isLoading || linkValido !== true}>
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
             Salvar nova senha
           </Button>
