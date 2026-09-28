@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { Resend } from "resend"
 import { registrarSolicitacao, marcarEmailEnviado } from "@/lib/solicitacoes"
+import { REGEX_MATRICULA, REGEX_TELEFONE, REGEX_CODIGO_DISCIPLINA } from "@/lib/form-utils"
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     const nomeDisciplina = formData.get("nomeDisciplina") as string
     const justificativa = formData.get("justificativa") as string
     const formularioFile = formData.get("formulario") as File
-    const historicoFile = formData.get("historico") as File | null
+    const historicoFile = formData.get("historico") as File
 
     // Validate required fields
     if (
@@ -25,7 +26,8 @@ export async function POST(request: Request) {
       !codigoDisciplina ||
       !nomeDisciplina ||
       !justificativa ||
-      !formularioFile
+      !formularioFile ||
+      !historicoFile
     ) {
       return NextResponse.json(
         { error: "Todos os campos obrigatórios devem ser preenchidos" },
@@ -33,15 +35,25 @@ export async function POST(request: Request) {
       )
     }
 
+    // Revalida no servidor os campos com formato restrito no formulário -
+    // o front-end já impede a digitação fora do padrão, mas a API nunca deve
+    // confiar apenas na validação do cliente.
+    if (!REGEX_MATRICULA.test(matricula)) {
+      return NextResponse.json({ error: "Matrícula inválida." }, { status: 400 })
+    }
+    if (!REGEX_TELEFONE.test(telefone)) {
+      return NextResponse.json({ error: "Telefone inválido." }, { status: 400 })
+    }
+    if (!REGEX_CODIGO_DISCIPLINA.test(codigoDisciplina)) {
+      return NextResponse.json({ error: "Código da disciplina inválido." }, { status: 400 })
+    }
+
     // Convert files to base64
     const formularioBuffer = await formularioFile.arrayBuffer()
     const formularioBase64 = Buffer.from(formularioBuffer).toString("base64")
 
-    let historicoBase64: string | null = null
-    if (historicoFile && historicoFile.size > 0) {
-      const historicoBuffer = await historicoFile.arrayBuffer()
-      historicoBase64 = Buffer.from(historicoBuffer).toString("base64")
-    }
+    const historicoBuffer = await historicoFile.arrayBuffer()
+    const historicoBase64 = Buffer.from(historicoBuffer).toString("base64")
 
     // Get file extensions for proper naming
     const getFileExtension = (filename: string) => {
@@ -51,20 +63,18 @@ export async function POST(request: Request) {
 
     const formularioExtension = getFileExtension(formularioFile.name)
 
+    const historicoExtension = getFileExtension(historicoFile.name)
+
     const attachments = [
       {
         filename: `formulario_quebra_pre_requisito_${nomeCompleto.replace(/\s+/g, "_")}.${formularioExtension}`,
         content: formularioBase64,
       },
-    ]
-
-    if (historicoBase64 && historicoFile) {
-      const historicoExtension = getFileExtension(historicoFile.name)
-      attachments.push({
+      {
         filename: `historico_parcial_${nomeCompleto.replace(/\s+/g, "_")}.${historicoExtension}`,
         content: historicoBase64,
-      })
-    }
+      },
+    ]
 
     // Check if RESEND_API_KEY is set
     if (!process.env.RESEND_API_KEY) {
@@ -88,7 +98,6 @@ export async function POST(request: Request) {
         codigoDisciplina,
         nomeDisciplina,
         justificativa,
-        possuiHistoricoParcial: Boolean(historicoBase64),
       },
     })
 
@@ -96,7 +105,9 @@ export async function POST(request: Request) {
 
     await resend.emails.send({
       from: "Solicitações do Colegiado <onboarding@resend.dev>",
-      to: ["colegiado@colegiado.edu.br"],
+      // Endereço de quem vai atender as solicitações (o "administrador" do
+      // sistema) - configurável via ADMIN_NOTIFICATION_EMAIL (ver .env.example).
+      to: [process.env.ADMIN_NOTIFICATION_EMAIL || "colegiado@colegiado.edu.br"],
       cc: [email], // Student receives a copy
       replyTo: email,
       subject: `Quebra de Pré-Requisito | ${nomeCompleto}`,
@@ -113,7 +124,7 @@ export async function POST(request: Request) {
         <p><strong>Justificativa:</strong></p>
         <p>${justificativa}</p>
         <hr/>
-        <p>O formulário de solicitação assinado${historicoBase64 ? " e o histórico parcial estão" : " está"} em anexo.</p>
+        <p>O formulário de solicitação assinado e o histórico parcial estão em anexo.</p>
         <p>Este e-mail foi enviado através do Portal de Solicitações do Colegiado de Curso.</p>
       `,
       attachments,

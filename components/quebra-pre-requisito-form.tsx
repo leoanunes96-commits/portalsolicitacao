@@ -1,31 +1,67 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Loader2, Send, CheckCircle, Upload, X, FileText } from "lucide-react"
+import { Loader2, Send, CheckCircle, CheckCircle2, Upload, X, FileText, Info } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field"
+import { createClient } from "@/lib/supabase/client"
+import {
+  REGEX_MATRICULA,
+  REGEX_TELEFONE,
+  REGEX_CODIGO_DISCIPLINA,
+  somenteNumeros,
+  formatarCodigoDisciplina,
+} from "@/lib/form-utils"
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/jpg"]
 
+// Critérios da Resolução para a quebra de pré-requisito - exibidos como
+// checklist informativo antes do envio (o aluno não marca item a item, só
+// confirma ter lido, com a caixa "cienteRegras" abaixo da lista).
+const CRITERIOS_QUEBRA_PRE_REQUISITO = [
+  "Estar no Plano de Integralização Curricular (PIC)*",
+  "Coeficiente de Rendimento maior ou igual a 8,0",
+  "Não ter sido reprovado por falta",
+  "Não ter sido reprovado por nota",
+  "Ter realizado a Disciplina Optativa",
+  "Ter a anuência do professor da disciplina que se deseja quebrar o pré-requisito",
+]
+
+// Sem campo de e-mail no formulário - o e-mail usado é sempre o da conta
+// autenticada, obtido direto da sessão do Supabase no momento do envio (ver
+// AjusteMatriculaForm para o mesmo padrão e o porquê).
 const formSchema = z.object({
   nomeCompleto: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-  matricula: z.string().min(1, "Número de matrícula é obrigatório"),
-  telefone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos"),
-  email: z.string().email("E-mail inválido"),
-  codigoDisciplina: z.string().min(1, "Código da disciplina é obrigatório"),
+  matricula: z
+    .string()
+    .regex(REGEX_MATRICULA, "A matrícula deve conter exatamente 10 números"),
+  telefone: z
+    .string()
+    .regex(REGEX_TELEFONE, "O telefone deve conter apenas números, entre 10 e 11 dígitos"),
+  codigoDisciplina: z
+    .string()
+    .regex(
+      REGEX_CODIGO_DISCIPLINA,
+      "Código inválido. Use 3 letras seguidas de 5 números (ex.: FON12345)"
+    ),
   nomeDisciplina: z.string().min(1, "Nome da disciplina é obrigatório"),
   justificativa: z
     .string()
     .min(20, "Descreva a justificativa com pelo menos 20 caracteres"),
+  cienteRegras: z.boolean().refine((valor) => valor === true, {
+    message: "Você precisa confirmar que está ciente das regras antes de enviar",
+  }),
 })
 
 type FormData = z.infer<typeof formSchema>
@@ -38,14 +74,35 @@ export function QuebraPreRequisitoForm() {
   const [formularioFile, setFormularioFile] = useState<File | null>(null)
   const [historicoFile, setHistoricoFile] = useState<File | null>(null)
   const [fileErrors, setFileErrors] = useState<{ formulario?: string; historico?: string }>({})
+  const [emailSessao, setEmailSessao] = useState<string | null>(null)
 
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      cienteRegras: false,
+    },
   })
+
+  // Ver AjusteMatriculaForm: mesmo padrão de restringir a digitação (só
+  // números / maiúsculas) encadeando com o onChange do react-hook-form.
+  const registroMatricula = register("matricula")
+  const registroTelefone = register("telefone")
+  const registroCodigoDisciplina = register("codigoDisciplina")
+
+  const cienteRegras = watch("cienteRegras")
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      setEmailSessao(data.user?.email ?? null)
+    })
+  }, [])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: FileKind) => {
     const file = e.target.files?.[0]
@@ -79,8 +136,22 @@ export function QuebraPreRequisitoForm() {
   }
 
   const onSubmit = async (data: FormData) => {
+    // Formulário e histórico parcial são ambos obrigatórios neste fluxo -
+    // o histórico comprova o cumprimento dos critérios (CR, disciplina
+    // optativa etc.) declarados no checklist acima.
+    let temErroDeArquivo = false
     if (!formularioFile) {
       setFileErrors((prev) => ({ ...prev, formulario: "O formulário assinado é obrigatório" }))
+      temErroDeArquivo = true
+    }
+    if (!historicoFile) {
+      setFileErrors((prev) => ({ ...prev, historico: "O histórico parcial é obrigatório" }))
+      temErroDeArquivo = true
+    }
+    if (temErroDeArquivo) return
+
+    if (!emailSessao) {
+      toast.error("Não foi possível identificar seu e-mail institucional. Recarregue a página e tente novamente.")
       return
     }
 
@@ -91,14 +162,12 @@ export function QuebraPreRequisitoForm() {
       formData.append("nomeCompleto", data.nomeCompleto)
       formData.append("matricula", data.matricula)
       formData.append("telefone", data.telefone)
-      formData.append("email", data.email)
+      formData.append("email", emailSessao)
       formData.append("codigoDisciplina", data.codigoDisciplina)
       formData.append("nomeDisciplina", data.nomeDisciplina)
       formData.append("justificativa", data.justificativa)
-      formData.append("formulario", formularioFile)
-      if (historicoFile) {
-        formData.append("historico", historicoFile)
-      }
+      formData.append("formulario", formularioFile as File)
+      formData.append("historico", historicoFile as File)
 
       const response = await fetch("/api/enviar-quebra-pre-requisito", {
         method: "POST",
@@ -180,7 +249,13 @@ export function QuebraPreRequisitoForm() {
               <Input
                 id="matricula"
                 placeholder="Ex: 2021123456"
-                {...register("matricula")}
+                inputMode="numeric"
+                maxLength={10}
+                {...registroMatricula}
+                onChange={(e) => {
+                  e.target.value = somenteNumeros(e.target.value, 10)
+                  registroMatricula.onChange(e)
+                }}
                 className={errors.matricula ? "border-destructive" : ""}
               />
               {errors.matricula && (
@@ -190,44 +265,93 @@ export function QuebraPreRequisitoForm() {
               )}
             </Field>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor="telefone">
-                  Telefone <span className="text-destructive">*</span>
-                </FieldLabel>
-                <Input
-                  id="telefone"
-                  type="tel"
-                  placeholder="(27) 99999-9999"
-                  {...register("telefone")}
-                  className={errors.telefone ? "border-destructive" : ""}
-                />
-                {errors.telefone && (
-                  <FieldDescription className="text-destructive">
-                    {errors.telefone.message}
-                  </FieldDescription>
-                )}
-              </Field>
+            <Field>
+              <FieldLabel htmlFor="telefone">
+                Telefone <span className="text-destructive">*</span>
+              </FieldLabel>
+              <Input
+                id="telefone"
+                type="tel"
+                placeholder="27999999999"
+                inputMode="numeric"
+                maxLength={11}
+                {...registroTelefone}
+                onChange={(e) => {
+                  e.target.value = somenteNumeros(e.target.value, 11)
+                  registroTelefone.onChange(e)
+                }}
+                className={errors.telefone ? "border-destructive" : ""}
+              />
+              {errors.telefone && (
+                <FieldDescription className="text-destructive">
+                  {errors.telefone.message}
+                </FieldDescription>
+              )}
+            </Field>
 
-              <Field>
-                <FieldLabel htmlFor="email">
-                  E-mail <span className="text-destructive">*</span>
-                </FieldLabel>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  {...register("email")}
-                  className={errors.email ? "border-destructive" : ""}
-                />
-                {errors.email && (
-                  <FieldDescription className="text-destructive">
-                    {errors.email.message}
-                  </FieldDescription>
-                )}
-              </Field>
-            </div>
+            <FieldDescription>
+              As comunicações referentes a esta solicitação serão realizadas pelo e-mail
+              institucional cadastrado. Fique atento(a) à sua caixa de entrada.
+            </FieldDescription>
           </FieldGroup>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Regras para Quebra de Pré-Requisito</CardTitle>
+          <CardDescription>
+            Leia os critérios abaixo antes de enviar a solicitação
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
+            <Info className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+            <p className="text-sm text-amber-900">
+              A quebra de pré-requisito será aprovada somente quando o estudante cumprir com{" "}
+              <span className="font-medium">TODOS</span> os critérios abaixo (exceto o item I).
+              O estudante em PIC terá prioridade na quebra de pré-requisito e não será necessário
+              cumprir com as outras exigências.
+            </p>
+          </div>
+
+          <ul className="space-y-2">
+            {CRITERIOS_QUEBRA_PRE_REQUISITO.map((criterio, indice) => (
+              <li key={criterio} className="flex items-start gap-2 text-sm">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+                <span>
+                  {indice === 0 ? (
+                    <>
+                      {criterio} <span className="text-muted-foreground">*</span>
+                    </>
+                  ) : (
+                    criterio
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <p className="text-xs text-muted-foreground">
+            * O estudante em PIC (item I) terá prioridade na quebra de pré-requisito e não
+            precisará cumprir com as demais exigências (itens II a VI).
+          </p>
+
+          <div className="flex items-start space-x-3 rounded-lg border border-border p-4">
+            <Checkbox
+              id="cienteRegras"
+              checked={cienteRegras}
+              onCheckedChange={(checked) => setValue("cienteRegras", checked as boolean)}
+              className="mt-0.5"
+            />
+            <Label htmlFor="cienteRegras" className="cursor-pointer text-sm font-normal">
+              Declaro estar ciente dos critérios acima para a quebra de pré-requisito.{" "}
+              <span className="text-destructive">*</span>
+            </Label>
+          </div>
+          {errors.cienteRegras && (
+            <p className="text-sm text-destructive">{errors.cienteRegras.message}</p>
+          )}
         </CardContent>
       </Card>
 
@@ -248,7 +372,12 @@ export function QuebraPreRequisitoForm() {
                 <Input
                   id="codigoDisciplina"
                   placeholder="Ex: ABC12345"
-                  {...register("codigoDisciplina")}
+                  maxLength={8}
+                  {...registroCodigoDisciplina}
+                  onChange={(e) => {
+                    e.target.value = formatarCodigoDisciplina(e.target.value)
+                    registroCodigoDisciplina.onChange(e)
+                  }}
                   className={errors.codigoDisciplina ? "border-destructive" : ""}
                 />
                 {errors.codigoDisciplina && (
@@ -301,7 +430,8 @@ export function QuebraPreRequisitoForm() {
         <CardHeader>
           <CardTitle>Documentos</CardTitle>
           <CardDescription>
-            Anexe o formulário de solicitação assinado (obrigatório) e, se tiver, o histórico parcial (PDF, JPG ou PNG - máx. 10MB)
+            Anexe o formulário de solicitação assinado e o histórico parcial - ambos
+            obrigatórios (PDF, JPG ou PNG - máx. 10MB)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -344,7 +474,9 @@ export function QuebraPreRequisitoForm() {
             </Field>
 
             <Field>
-              <FieldLabel>Histórico Parcial (opcional)</FieldLabel>
+              <FieldLabel>
+                Histórico Parcial <span className="text-destructive">*</span>
+              </FieldLabel>
               {historicoFile ? (
                 <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 p-3">
                   <div className="flex items-center gap-3">
@@ -382,11 +514,16 @@ export function QuebraPreRequisitoForm() {
       </Card>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:justify-end">
-        <Button type="submit" size="lg" disabled={isSubmitting} className="w-full sm:w-auto">
+        <Button type="submit" size="lg" disabled={isSubmitting || !emailSessao} className="w-full sm:w-auto">
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Enviando...
+            </>
+          ) : !emailSessao ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Carregando...
             </>
           ) : (
             <>

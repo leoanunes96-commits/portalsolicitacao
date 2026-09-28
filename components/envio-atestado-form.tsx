@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -14,12 +14,20 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field"
 import { docentes, type Docente } from "@/lib/docentes"
+import { createClient } from "@/lib/supabase/client"
+import { REGEX_MATRICULA, somenteNumeros } from "@/lib/form-utils"
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
+// Sem campo de e-mail no formulário - o e-mail usado (para cópia ao aluno e
+// para localizar a solicitação em "Minhas Solicitações") é sempre o da conta
+// autenticada, obtido da sessão do Supabase no momento do envio. No lugar,
+// pedimos a matrícula, que os docentes usam para identificar o aluno.
 const formSchema = z.object({
   nome: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-  email: z.string().email("E-mail inválido"),
+  matricula: z
+    .string()
+    .regex(REGEX_MATRICULA, "A matrícula deve conter exatamente 10 números"),
   docentesSelecionados: z.array(z.string()).min(1, "Selecione pelo menos um docente"),
   solicitarSegundaChamada: z.boolean().optional(),
   descricaoAtividadePerdida: z.string().optional(),
@@ -33,6 +41,7 @@ export function EnvioAtestadoForm() {
   const [atestadoFile, setAtestadoFile] = useState<File | null>(null)
   const [comprovanteFile, setComprovanteFile] = useState<File | null>(null)
   const [fileErrors, setFileErrors] = useState<{ atestado?: string; comprovante?: string }>({})
+  const [emailSessao, setEmailSessao] = useState<string | null>(null)
 
   const {
     register,
@@ -46,6 +55,17 @@ export function EnvioAtestadoForm() {
       docentesSelecionados: [],
     },
   })
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      setEmailSessao(data.user?.email ?? null)
+    })
+  }, [])
+
+  // Ver AjusteMatriculaForm: mesmo padrão de restringir a digitação (só
+  // números) encadeando com o onChange do react-hook-form.
+  const registroMatricula = register("matricula")
 
   const docentesSelecionados = watch("docentesSelecionados")
   const solicitarSegundaChamada = watch("solicitarSegundaChamada")
@@ -114,12 +134,18 @@ export function EnvioAtestadoForm() {
       return
     }
 
+    if (!emailSessao) {
+      toast.error("Não foi possível identificar seu e-mail institucional. Recarregue a página e tente novamente.")
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
       const formData = new FormData()
       formData.append("nome", data.nome)
-      formData.append("email", data.email)
+      formData.append("matricula", data.matricula)
+      formData.append("email", emailSessao)
       formData.append("docentesSelecionados", JSON.stringify(data.docentesSelecionados))
       formData.append("solicitarSegundaChamada", data.solicitarSegundaChamada ? "true" : "false")
       formData.append("descricaoAtividadePerdida", data.descricaoAtividadePerdida || "")
@@ -202,22 +228,32 @@ export function EnvioAtestadoForm() {
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="email">
-                E-mail <span className="text-destructive">*</span>
+              <FieldLabel htmlFor="matricula">
+                Número de Matrícula <span className="text-destructive">*</span>
               </FieldLabel>
               <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                {...register("email")}
-                className={errors.email ? "border-destructive" : ""}
+                id="matricula"
+                placeholder="Ex: 2021123456"
+                inputMode="numeric"
+                maxLength={10}
+                {...registroMatricula}
+                onChange={(e) => {
+                  e.target.value = somenteNumeros(e.target.value, 10)
+                  registroMatricula.onChange(e)
+                }}
+                className={errors.matricula ? "border-destructive" : ""}
               />
-              {errors.email && (
+              {errors.matricula && (
                 <FieldDescription className="text-destructive">
-                  {errors.email.message}
+                  {errors.matricula.message}
                 </FieldDescription>
               )}
             </Field>
+
+            <FieldDescription>
+              As comunicações referentes a esta solicitação serão realizadas pelo e-mail
+              institucional cadastrado. Fique atento(a) à sua caixa de entrada.
+            </FieldDescription>
           </FieldGroup>
         </CardContent>
       </Card>
@@ -412,13 +448,18 @@ export function EnvioAtestadoForm() {
         <Button
           type="submit"
           size="lg"
-          disabled={isSubmitting}
+          disabled={isSubmitting || !emailSessao}
           className="w-full sm:w-auto"
         >
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Enviando...
+            </>
+          ) : !emailSessao ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Carregando...
             </>
           ) : (
             <>

@@ -2,12 +2,14 @@ import { NextResponse } from "next/server"
 import { Resend } from "resend"
 import { docentes } from "@/lib/docentes"
 import { registrarSolicitacao, marcarEmailEnviado } from "@/lib/solicitacoes"
+import { REGEX_MATRICULA } from "@/lib/form-utils"
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData()
 
     const nome = formData.get("nome") as string
+    const matricula = formData.get("matricula") as string
     const email = formData.get("email") as string
     const docentesSelecionadosJson = formData.get("docentesSelecionados") as string
     const atestadoFile = formData.get("atestado") as File
@@ -16,11 +18,18 @@ export async function POST(request: Request) {
     const descricaoAtividadePerdida = (formData.get("descricaoAtividadePerdida") as string) || ""
 
     // Validate required fields
-    if (!nome || !email || !docentesSelecionadosJson || !atestadoFile || !comprovanteFile) {
+    if (!nome || !matricula || !email || !docentesSelecionadosJson || !atestadoFile || !comprovanteFile) {
       return NextResponse.json(
         { error: "Todos os campos obrigatórios devem ser preenchidos" },
         { status: 400 }
       )
+    }
+
+    // Revalida no servidor o campo com formato restrito no formulário - o
+    // front-end já impede a digitação fora do padrão, mas a API nunca deve
+    // confiar apenas na validação do cliente.
+    if (!REGEX_MATRICULA.test(matricula)) {
+      return NextResponse.json({ error: "Matrícula inválida." }, { status: 400 })
     }
 
     const docentesSelecionados: string[] = JSON.parse(docentesSelecionadosJson)
@@ -73,12 +82,11 @@ export async function POST(request: Request) {
 
     // Registra a solicitação no banco (painel de status / auditoria) antes de enviar
     // o e-mail. Best-effort: se o banco não estiver configurado, segue sem persistir.
-    // Observação: este fluxo hoje não coleta matrícula/telefone no formulário, por
-    // isso ficam nulos aqui.
+    // Observação: este fluxo não coleta telefone no formulário, por isso fica nulo aqui.
     const solicitacaoRegistrada = await registrarSolicitacao({
       tipoFluxo: "ATESTADO_MEDICO",
       nomeCompleto: nome,
-      matricula: null,
+      matricula,
       telefone: null,
       email,
       dadosEspecificos: {
@@ -102,6 +110,7 @@ export async function POST(request: Request) {
     const htmlContent = `
       <h2>Envio de Atestado Médico${solicitarSegundaChamada ? " / Pedido de Segunda Chamada" : ""}</h2>
       <p><strong>Aluno(a):</strong> ${nome}</p>
+      <p><strong>Matrícula:</strong> ${matricula}</p>
       <p><strong>E-mail:</strong> ${email}</p>
       <hr/>
       <p>Segue em anexo o atestado médico e o comprovante de matrícula do(a) aluno(a).</p>
