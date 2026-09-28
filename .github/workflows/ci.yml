@@ -1,0 +1,33 @@
+name: CI
+
+# Integração contínua básica (Módulo 4 - Unidade 2): a cada push ou pull
+# request para a main, instala as dependências, roda o lint e os testes
+# automatizados. Não roda "next build" aqui porque o build depende de
+# variáveis de ambiente (Supabase, Resend, banco) que não estão configuradas
+# como segredos neste repositório - ver docs/checklist-testes-manuais.md
+# para a verificação manual dessa parte.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-e-testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Testes automatizados
+        run: npm test
