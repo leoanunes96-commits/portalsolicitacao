@@ -37,7 +37,7 @@ export default function AjusteMatriculaPage() {
             Ajuste de Matrícula
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Preencha o formulário abaixo para solicitar abertura de vaga em disciplina lotada (ou, se for o caso, abertura de escopo).
+            Preencha o formulário abaixo para solicitar abertura de vaga ou abertura de escopo.
           </p>
         </div>
 
