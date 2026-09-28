@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Field, FieldLabel } from "@/components/ui/field"
 
-type StatusSolicitacao = "RECEBIDO" | "EM_ANALISE" | "DEFERIDO" | "INDEFERIDO"
+type StatusSolicitacao = "RECEBIDO" | "EM_ANALISE" | "DILIGENCIA_PENDENTE" | "DEFERIDO" | "INDEFERIDO"
 type TipoFluxo = "AJUSTE_MATRICULA" | "QUEBRA_PRE_REQUISITO" | "ATESTADO_MEDICO"
 
 interface HistoricoStatus {
@@ -44,17 +44,30 @@ const TIPO_FLUXO_ORDEM: TipoFluxo[] = ["AJUSTE_MATRICULA", "QUEBRA_PRE_REQUISITO
 const STATUS_LABEL: Record<StatusSolicitacao, string> = {
   RECEBIDO: "Recebido",
   EM_ANALISE: "Em análise",
+  DILIGENCIA_PENDENTE: "Diligência pendente",
   DEFERIDO: "Deferido",
   INDEFERIDO: "Indeferido",
 }
 
-const STATUS_OPCOES: StatusSolicitacao[] = ["RECEBIDO", "EM_ANALISE", "DEFERIDO", "INDEFERIDO"]
+const STATUS_OPCOES: StatusSolicitacao[] = [
+  "RECEBIDO",
+  "EM_ANALISE",
+  "DILIGENCIA_PENDENTE",
+  "DEFERIDO",
+  "INDEFERIDO",
+]
 
+// Cores por status, combinadas com o painel do discente ("Minhas
+// Solicitações") para o significado de cada cor ser o mesmo nos dois lugares:
+// recebido/em análise/diligência usam tons claros com letra escura, e os
+// status finais (deferido/indeferido) usam tons escuros com letra branca,
+// para reforçar visualmente que são decisões definitivas.
 const STATUS_CLASSNAME: Record<StatusSolicitacao, string> = {
-  RECEBIDO: "",
-  EM_ANALISE: "",
-  DEFERIDO: "border-green-300 bg-green-50 text-green-700",
-  INDEFERIDO: "border-destructive/40 text-destructive",
+  RECEBIDO: "border-green-300 bg-green-100 text-black",
+  EM_ANALISE: "border-yellow-300 bg-yellow-200 text-black",
+  DILIGENCIA_PENDENTE: "border-red-300 bg-red-100 text-black",
+  DEFERIDO: "border-green-800 bg-green-700 text-white",
+  INDEFERIDO: "border-red-800 bg-red-700 text-white",
 }
 
 function formatarData(iso: string) {

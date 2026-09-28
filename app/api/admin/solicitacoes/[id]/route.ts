@@ -5,7 +5,13 @@ import type { StatusSolicitacao } from "@prisma/client"
 
 // Valores aceitos para "Status do Ticket" na área administrativa - os mesmos
 // do enum StatusSolicitacao do schema.
-const STATUS_VALIDOS: StatusSolicitacao[] = ["RECEBIDO", "EM_ANALISE", "DEFERIDO", "INDEFERIDO"]
+const STATUS_VALIDOS: StatusSolicitacao[] = [
+  "RECEBIDO",
+  "EM_ANALISE",
+  "DILIGENCIA_PENDENTE",
+  "DEFERIDO",
+  "INDEFERIDO",
+]
 
 interface RouteParams {
   params: Promise<{ id: string }>

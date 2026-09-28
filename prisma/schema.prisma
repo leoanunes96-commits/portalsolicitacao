@@ -22,6 +22,7 @@ enum TipoFluxo {
 enum StatusSolicitacao {
   RECEBIDO
   EM_ANALISE
+  DILIGENCIA_PENDENTE
   DEFERIDO
   INDEFERIDO
 }

@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "StatusSolicitacao" ADD VALUE 'DILIGENCIA_PENDENTE';
